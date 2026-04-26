@@ -1,0 +1,50 @@
+{
+  "name": "@nebula-agents/electron-mcp",
+  "version": "0.1.0-pre",
+  "description": "Embedded Model Context Protocol server for Electron apps. Exposes screenshot/evaluate/list_surfaces and friends over loopback HTTP, driving real BrowserWindows via webContents.debugger (CDP).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agent-labs-dev/electron-mcp.git"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "pretest": "pnpm build",
+    "test": "playwright test",
+    "test:smoke": "pnpm build && playwright test tests/smoke.electron.test.ts"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=1.29.0",
+    "electron": ">=30",
+    "zod": "^4.3.0"
+  },
+  "dependencies": {
+    "async-mutex": "^0.5.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "electron": "^41.2.1",
+    "playwright": "^1.49.0",
+    "typescript": "^5.7.2",
+    "zod": "^4.3.6"
+  }
+}

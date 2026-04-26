@@ -1,0 +1,5 @@
+# Single-package repo (no `packages:` entry) — this file exists only to
+# allow-list build scripts. pnpm 10 moved `onlyBuiltDependencies` out of
+# package.json to here.
+onlyBuiltDependencies:
+  - electron

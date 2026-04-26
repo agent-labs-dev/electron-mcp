@@ -1,0 +1,7 @@
+{
+  "name": "electron-mcp-smoke-fixture",
+  "private": true,
+  "version": "0.0.0",
+  "main": "electron-main.cjs",
+  "description": "Minimal Electron app the smoke test launches via Playwright's _electron.launch(). Electron only enters main-process mode when it can resolve a package.json with a `main` field; pointing it at this directory does that without dragging the parent package's `type: module` into scope."
+}
