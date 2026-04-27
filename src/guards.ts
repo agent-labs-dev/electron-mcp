@@ -12,7 +12,7 @@ export function recommendedGuards({
   isPackaged,
   env = process.env,
   envVar = DEFAULT_ENV_VAR,
-}: RecommendedGuardsOptions): boolean {
+}: RecommendedGuardsOptions = {}): boolean {
   const packaged = isPackaged ?? app?.isPackaged;
   if (packaged === undefined) {
     throw new Error(

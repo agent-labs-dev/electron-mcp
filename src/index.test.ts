@@ -122,6 +122,10 @@ describe("createElectronMcpServer", () => {
 });
 
 describe("recommendedGuards", () => {
+  it("throws a packaged-state error when called without options", () => {
+    expect(() => recommendedGuards()).toThrow(/isPackaged/i);
+  });
+
   it("allows startup when the app is unpackaged and the opt-in env var is enabled", () => {
     expect(
       recommendedGuards({
