@@ -163,9 +163,15 @@ export function createFakeWebContents(
     onceListeners.set(event, bucket);
   };
   const emit = (event: string, ...args: unknown[]) => {
-    for (const l of listeners.get(event) ?? []) l(...args);
-    for (const l of onceListeners.get(event) ?? []) l(...args);
-    onceListeners.get(event)?.clear();
+    // Match Node EventEmitter semantics: snapshot first, unregister
+    // once-listeners *before* invoking, so a handler that calls
+    // emit() recursively or adds new listeners doesn't see the
+    // already-firing batch and doesn't fire stale once-listeners.
+    const normal = [...(listeners.get(event) ?? [])];
+    const onceSnapshot = [...(onceListeners.get(event) ?? [])];
+    onceListeners.delete(event);
+    for (const l of normal) l(...args);
+    for (const l of onceSnapshot) l(...args);
   };
 
   // Track debugger listeners so tests can exercise the same
