@@ -89,11 +89,19 @@ export function getOrAttachSession(
 
   // Drop the cache on external detach (developer DevTools, another
   // debugger, renderer crash) so the next call re-attaches cleanly.
+  // Self-unregister so reattaching the same surface doesn't pile up
+  // listeners on `wc.debugger`, and only clear the cache if the record
+  // still points at THIS webContents — a rebind to a different window
+  // would otherwise wipe the new attachment.
   const onDetach = (_event: Electron.Event, reason: string) => {
+    wc.debugger.off("detach", onDetach);
     console.warn(
       `[mcp] debugger detached from "${surface}" (reason: ${reason})`,
     );
-    attached.delete(surface);
+    const rec = attached.get(surface);
+    if (rec && rec.win.webContents === wc) {
+      attached.delete(surface);
+    }
   };
   wc.debugger.on("detach", onDetach);
 
@@ -115,9 +123,15 @@ function buildSession(surface: string, wc: WebContents): CdpSession {
       return wc.debugger.sendCommand(method, params ?? {});
     },
     detach: () => {
+      // Stale `CdpSession` handle: a rebind may have already swapped
+      // the cache to a different window. Only tear down the map entry
+      // if it still points at THIS webContents; otherwise we'd clobber
+      // the active binding and leak the old debugger anyway.
       const rec = attached.get(surface);
-      if (rec) rec.teardownListener();
-      attached.delete(surface);
+      if (rec && rec.win.webContents === wc) {
+        rec.teardownListener();
+        attached.delete(surface);
+      }
       if (wc.debugger.isAttached()) {
         try {
           wc.debugger.detach();

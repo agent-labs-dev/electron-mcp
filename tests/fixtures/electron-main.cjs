@@ -81,7 +81,15 @@ async function main() {
   process.stdout.write(`MCP_URL=${server.url}\n`);
 
   app.on("window-all-closed", () => {
-    server.stop().finally(() => app.quit());
+    // `.finally()` alone leaves a stop() rejection unhandled, which
+    // turns into a noisy `UnhandledPromiseRejection` warning in the
+    // Electron main process and can flake the smoke test on CI.
+    void server
+      .stop()
+      .catch((err) => {
+        console.error("[fixture] shutdown failed:", err);
+      })
+      .finally(() => app.quit());
   });
 }
 
