@@ -2,10 +2,11 @@
 Thanks for opening a PR. Fill the sections below so reviewers can land
 this without context-switching.
 
-CI runs typecheck + lint + unit tests + the Playwright `_electron` smoke
-test on every PR. Releases happen via Changesets — when this PR lands on
-`main`, the `release` workflow opens (or updates) a "Version Packages"
-PR consolidating pending changesets. Merging that PR cuts a release.
+CI runs `pnpm check` (lint + typecheck + test + build) and the Playwright
+`_electron` smoke test (`pnpm test:electron`) on every PR. Releases happen
+via Changesets — when this PR lands on `main`, the release workflow opens
+(or updates) a "Version Packages" PR consolidating pending changesets.
+Merging that PR cuts a release.
 
 See CONTRIBUTING.md for the full flow.
 -->
@@ -26,11 +27,10 @@ input schema, adjusting the loopback bind / HTTP defaults). -->
 
 ## Verification
 
-- [ ] `pnpm typecheck` passes locally
-- [ ] `pnpm test:unit` passes locally
-- [ ] If this touches CDP wiring or any bundled tool, `pnpm test:smoke` passes
+- [ ] `pnpm check` passes locally (lint + typecheck + test + build)
+- [ ] If this touches CDP wiring or any bundled tool, `pnpm test:electron` passes
 - [ ] A changeset is staged (`.changeset/<name>.md`) **or** this PR is genuinely no-op for users (`pnpm changeset --empty`)
-- [ ] Public API changes (`src/index.ts` / `src/types.ts` exports) are reflected in `README.md`
+- [ ] Public API changes (exports from `src/index.ts`) are reflected in `README.md`
 - [ ] No secrets, tokens, or `.env*` files included
 
 ## Notes for reviewers
