@@ -104,10 +104,14 @@ export function registerEvaluate(
         };
       }
 
-      const value = res.result.value;
+      // CDP reports `NaN`, `Infinity`, `-0`, bigints, etc. via
+      // `unserializableValue` rather than `value` — fall back to it
+      // before the generic `description`/`type` so the agent sees the
+      // actual value instead of a "number" placeholder.
+      const { value, unserializableValue, description, type } = res.result;
       const text =
         value === undefined
-          ? (res.result.description ?? String(res.result.type))
+          ? (unserializableValue ?? description ?? String(type))
           : typeof value === "string"
             ? value
             : JSON.stringify(value, null, 2);

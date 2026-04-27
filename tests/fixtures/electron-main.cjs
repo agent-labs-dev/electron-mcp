@@ -16,6 +16,7 @@
 
 const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 // Minimal renderer payload — enough for `screenshot` to capture a
 // non-empty image and for `evaluate` to have a real `document`.
@@ -58,9 +59,14 @@ async function main() {
   // returns an empty image if called before the first frame lands.
   await new Promise((r) => setTimeout(r, 100));
 
-  // dist/index.js is ESM, so dynamic-import from CJS.
+  // dist/index.js is ESM, so dynamic-import from CJS. Bare absolute
+  // paths fail under Node's ESM loader on Windows
+  // (ERR_UNSUPPORTED_ESM_URL_SCHEME — `C:\…` looks like a URL with
+  // scheme `c`); convert to a file:// URL for cross-platform safety.
   const distEntry = path.resolve(__dirname, "..", "..", "dist", "index.js");
-  const { createElectronMcpServer } = await import(distEntry);
+  const { createElectronMcpServer } = await import(
+    pathToFileURL(distEntry).href
+  );
 
   const server = createElectronMcpServer({
     getSurfaces: () => ({ main: win }),

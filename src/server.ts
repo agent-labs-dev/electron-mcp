@@ -102,6 +102,10 @@ export async function startMcpServer(
   // McpServer pair per `initialize` (matches the SDK's multi-session
   // example).
   const sessions = new Map<string, Session>();
+  // Latch flipped at the start of `stop()` so concurrent initializes
+  // can't sneak a fresh session past the snapshot and then keep
+  // `httpServer.close()` waiting on its open stream.
+  let shuttingDown = false;
 
   async function createSession(): Promise<Session> {
     const sessionServer = new McpServer(
@@ -162,7 +166,7 @@ export async function startMcpServer(
 
   const httpServer = createServer(async (req, res) => {
     try {
-      await routeRequest(req, res, sessions, createSession);
+      await routeRequest(req, res, sessions, createSession, () => shuttingDown);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.error(`request failed: ${msg}`);
@@ -197,6 +201,11 @@ export async function startMcpServer(
   return {
     url,
     stop: async () => {
+      // Flip the gate first so `routeRequest`/`createSession` reject
+      // any in-flight `initialize` before we snapshot — otherwise a
+      // session minted after the snapshot keeps `httpServer.close()`
+      // hanging on its open stream.
+      shuttingDown = true;
       detachAll();
       // Snapshot — `server.close()` fires `transport.onclose` which
       // mutates `sessions`.
@@ -228,6 +237,7 @@ async function routeRequest(
   res: ServerResponse,
   sessions: Map<string, Session>,
   createSession: () => Promise<Session>,
+  isShuttingDown: () => boolean,
 ): Promise<void> {
   const url = new URL(
     req.url ?? "/",
@@ -238,6 +248,23 @@ async function routeRequest(
     res.statusCode = 404;
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ error: `not found: ${url.pathname}` }));
+    return;
+  }
+
+  // Reject everything once `stop()` has flipped the latch — sessions
+  // minted after the snapshot would leak open streams and stall
+  // `httpServer.close()`.
+  if (isShuttingDown()) {
+    res.statusCode = 503;
+    res.setHeader("content-type", "application/json");
+    res.setHeader("connection", "close");
+    res.end(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Server is shutting down" },
+        id: null,
+      }),
+    );
     return;
   }
 
@@ -255,8 +282,10 @@ async function routeRequest(
       if (parsed.reason === "too-large") {
         res.statusCode = 413;
         res.setHeader("content-type", "application/json");
-        // Pair with `socket.destroy()` below to terminate the
-        // upload after the response flushes.
+        // Pair with the `socket.destroy()` callback below to terminate
+        // the upload only after the 413 response actually flushes —
+        // destroying synchronously after `res.end()` can race the
+        // flush and surface as ECONNRESET on the client.
         res.setHeader("connection", "close");
         res.end(
           JSON.stringify({
@@ -267,8 +296,8 @@ async function routeRequest(
             },
             id: null,
           }),
+          () => req.socket?.destroy(),
         );
-        req.socket?.destroy();
         return;
       }
       res.statusCode = 400;

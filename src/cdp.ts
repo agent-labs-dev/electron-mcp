@@ -48,8 +48,25 @@ export function getOrAttachSession(
   const wc = win.webContents;
 
   const existing = attached.get(surface);
-  if (existing && !existing.win.isDestroyed() && wc.debugger.isAttached()) {
+  if (existing && existing.win === win && wc.debugger.isAttached()) {
     return buildSession(existing.surface, wc);
+  }
+  // Surface name was rebound to a new window — the old record's debugger
+  // and detach listener are still pinned to the previous window. Clean
+  // them up before we mint a fresh attachment for the new `win`.
+  if (existing && existing.win !== win) {
+    existing.teardownListener();
+    try {
+      if (
+        !existing.win.isDestroyed() &&
+        existing.win.webContents.debugger.isAttached()
+      ) {
+        existing.win.webContents.debugger.detach();
+      }
+    } catch {
+      // Best-effort cleanup; old window may already be tearing down.
+    }
+    attached.delete(surface);
   }
 
   // Close auto-opened DevTools to avoid the attach conflict.
