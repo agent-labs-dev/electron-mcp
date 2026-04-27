@@ -1,7 +1,5 @@
-// Streamable HTTP transport on `127.0.0.1` (not `localhost` — that
-// can resolve to IPv6). Bare `node:http` (no Express/Hono for one
-// route). No Origin check — the only path here is a localhost MCP
-// client and Claude Code doesn't send Origin anyway.
+// Streamable HTTP transport on `127.0.0.1` (not `localhost`, which can
+// resolve to IPv6). Bare `node:http`; no framework for a single route.
 
 import { randomUUID } from "node:crypto";
 import {
@@ -13,69 +11,61 @@ import {
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { detachAll } from "./cdp.js";
-import type { SurfaceGetter } from "./surfaces.js";
-import type { ToolDef } from "./tool-def.js";
-import { registerAllTools } from "./tools/index.js";
-
-// Minimal stdout/stderr logger — extracted from nebula-desktop's
-// `@util/log` so this package has no internal-tooling dep. Consumers
-// that want structured logs can wrap stdout themselves.
-const log = {
-  info: (msg: string) => {
-    console.log(`[mcp] ${msg}`);
-  },
-  warn: (msg: string) => {
-    console.warn(`[mcp] ${msg}`);
-  },
-  error: (msg: string) => {
-    console.error(`[mcp] ${msg}`);
-  },
-};
+import { detachAll } from "./cdp";
+import type { SurfaceGetter } from "./surfaces";
+import type { ToolDef } from "./tool-def";
+import { registerAllTools } from "./tools";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 9229;
-const MCP_PATH = "/mcp";
+const DEFAULT_PATH = "/mcp";
 /** Retry once on EADDRINUSE — the previous Electron may still be releasing. */
 const EADDRINUSE_RETRY_DELAY_MS = 100;
 
-// Default `initialize` instructions sent to MCP clients. Generic, so the
-// embedded server is useful out of the box. Consumers can override via
-// `config.instructions` when they want app-specific guidance (which
-// surface names exist, when to reach for the tools, etc.).
-const DEFAULT_SERVER_INSTRUCTIONS = `\
-This server drives the floating BrowserWindow surfaces of a running
-Electron app. Reach for it to inspect or validate renderer-visible
-state — not for planning, not for main-process changes.
+const SERVER_INSTRUCTIONS = `\
+This server drives Electron BrowserWindow surfaces exposed by the host app.
+Use it to validate renderer-visible work by inspecting state, querying the
+DOM/accessibility tree, taking screenshots, and sending input.
+
+Use when:
+  • You need to see what an Electron surface paints.
+  • You need to reproduce or verify a renderer-visible bug.
+  • You need to inspect renderer state, DOM, accessibility data, or the
+    app's preload bridge.
+
+Skip when:
+  • The change is main-process only. These tools observe renderer surfaces.
+  • The change is types-only, tests-only, or docs-only.
 
 Typical flow:
-  1. list_surfaces — discover which surfaces are live.
-  2. show_surface { surface: "<name>" } — bring the target into view.
-  3. screenshot { surface: "<name>" } to see the rendered result, or
-     evaluate { surface: "<name>", expression: "…" } to inspect state.
+  1. list_surfaces — confirm the app exposed the expected surfaces.
+  2. show_surface { surface: "<key>" } — bring a target surface into view.
+  3. screenshot { surface: "<key>" } to see the result, or evaluate/query_dom
+     to inspect state.
 
 Scope of \`evaluate\`: runs in the renderer MAIN WORLD.
-Reachable: document, window, React tree, your stores, fetch.
+Reachable: document, window, renderer globals, the app's preload bridge, fetch.
 NOT reachable: require("electron"), process, Node APIs.
 
-If a tool errors with "surface not available", the consumer Electron
-app isn't running or hasn't registered that surface yet.`;
+If a tool errors with "surface not available", the host app did not expose
+that surface key or the BrowserWindow was destroyed.`;
+
+export interface McpLogger {
+  info: (message: string) => void;
+  warn: (message: string) => void;
+  error: (message: string) => void;
+}
 
 interface McpServerConfig {
   getSurfaces: SurfaceGetter;
-  // Consumer-registered tools (e.g. an app's `trigger_hotkey`). Bound
-  // to every per-session McpServer alongside the bundled tools.
   extraTools?: readonly ToolDef[];
-  // Pass `0` for an ephemeral port (used by tests).
   port?: number;
-  // Only override to `::1` if you really want IPv6 loopback.
   host?: string;
-  // Override server identity advertised in `initialize`. Defaults to
-  // `{ name: "@nebula-agents/electron-mcp", version: <pkg-version> }`.
-  serverInfo?: { name: string; version: string };
-  // Override the `initialize.instructions` text. Defaults to
-  // `DEFAULT_SERVER_INSTRUCTIONS` above.
+  path?: string;
+  serverName?: string;
+  serverVersion?: string;
   instructions?: string;
+  logger?: Partial<McpLogger>;
 }
 
 export interface RunningMcpServer {
@@ -88,6 +78,8 @@ export async function startMcpServer(
 ): Promise<RunningMcpServer> {
   const host = config.host ?? DEFAULT_HOST;
   const port = config.port ?? DEFAULT_PORT;
+  const path = normalizePath(config.path ?? DEFAULT_PATH);
+  const logger = config.logger;
 
   // Hard loopback gate — anything else exposes evaluate/screenshot/
   // CDP over the network.
@@ -102,21 +94,16 @@ export async function startMcpServer(
   // McpServer pair per `initialize` (matches the SDK's multi-session
   // example).
   const sessions = new Map<string, Session>();
-  // Latch flipped at the start of `stop()` so concurrent initializes
-  // can't sneak a fresh session past the snapshot and then keep
-  // `httpServer.close()` waiting on its open stream.
-  let shuttingDown = false;
 
   async function createSession(): Promise<Session> {
     const sessionServer = new McpServer(
-      config.serverInfo ?? {
-        name: "@nebula-agents/electron-mcp",
-        version: "0.1.0",
+      {
+        name: config.serverName ?? "electron-mcp",
+        version: config.serverVersion ?? "0.1.0",
       },
       {
         capabilities: { tools: {} },
-        // Returned in `initialize`; shown every session.
-        instructions: config.instructions ?? DEFAULT_SERVER_INSTRUCTIONS,
+        instructions: config.instructions ?? SERVER_INSTRUCTIONS,
       },
     );
     registerAllTools(sessionServer, { getSurfaces: config.getSurfaces });
@@ -166,10 +153,10 @@ export async function startMcpServer(
 
   const httpServer = createServer(async (req, res) => {
     try {
-      await routeRequest(req, res, sessions, createSession, () => shuttingDown);
+      await routeRequest(req, res, sessions, createSession, path);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      log.error(`request failed: ${msg}`);
+      logger?.error?.(`[mcp] request failed: ${msg}`);
       if (!res.headersSent) {
         res.statusCode = 500;
         res.setHeader("content-type", "application/json");
@@ -181,7 +168,7 @@ export async function startMcpServer(
   });
 
   try {
-    await listenWithRetry(httpServer, port, host);
+    await listenWithRetry(httpServer, port, host, logger);
   } catch (err) {
     httpServer.close();
     throw err;
@@ -195,17 +182,12 @@ export async function startMcpServer(
   // IPv6 literals must be bracketed in a URL authority — `http://::1:9229/mcp`
   // is not parseable, `http://[::1]:9229/mcp` is.
   const urlHost = host.includes(":") ? `[${host}]` : host;
-  const url = `http://${urlHost}:${boundPort}${MCP_PATH}`;
-  log.info(`listening on ${url}`);
+  const url = `http://${urlHost}:${boundPort}${path}`;
+  logger?.info?.(`[mcp] listening on ${url}`);
 
   return {
     url,
     stop: async () => {
-      // Flip the gate first so `routeRequest`/`createSession` reject
-      // any in-flight `initialize` before we snapshot — otherwise a
-      // session minted after the snapshot keeps `httpServer.close()`
-      // hanging on its open stream.
-      shuttingDown = true;
       detachAll();
       // Snapshot — `server.close()` fires `transport.onclose` which
       // mutates `sessions`.
@@ -237,34 +219,17 @@ async function routeRequest(
   res: ServerResponse,
   sessions: Map<string, Session>,
   createSession: () => Promise<Session>,
-  isShuttingDown: () => boolean,
+  path: string,
 ): Promise<void> {
   const url = new URL(
     req.url ?? "/",
     `http://${req.headers.host ?? "localhost"}`,
   );
 
-  if (url.pathname !== MCP_PATH) {
+  if (url.pathname !== path) {
     res.statusCode = 404;
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ error: `not found: ${url.pathname}` }));
-    return;
-  }
-
-  // Reject everything once `stop()` has flipped the latch — sessions
-  // minted after the snapshot would leak open streams and stall
-  // `httpServer.close()`.
-  if (isShuttingDown()) {
-    res.statusCode = 503;
-    res.setHeader("content-type", "application/json");
-    res.setHeader("connection", "close");
-    res.end(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        error: { code: -32000, message: "Server is shutting down" },
-        id: null,
-      }),
-    );
     return;
   }
 
@@ -282,10 +247,8 @@ async function routeRequest(
       if (parsed.reason === "too-large") {
         res.statusCode = 413;
         res.setHeader("content-type", "application/json");
-        // Pair with the `socket.destroy()` callback below to terminate
-        // the upload only after the 413 response actually flushes —
-        // destroying synchronously after `res.end()` can race the
-        // flush and surface as ECONNRESET on the client.
+        // Pair with `socket.destroy()` below to terminate the
+        // upload after the response flushes.
         res.setHeader("connection", "close");
         res.end(
           JSON.stringify({
@@ -296,8 +259,8 @@ async function routeRequest(
             },
             id: null,
           }),
-          () => req.socket?.destroy(),
         );
+        req.socket?.destroy();
         return;
       }
       res.statusCode = 400;
@@ -381,6 +344,12 @@ async function routeRequest(
   res.end(JSON.stringify({ error: `method not allowed: ${req.method}` }));
 }
 
+function normalizePath(path: string): string {
+  const trimmed = path.trim();
+  if (trimmed.length === 0) return DEFAULT_PATH;
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
 // Branch on `ok`, not body shape — `"ping"` and `42` are valid
 // non-object bodies. Two failure reasons so the caller can pick
 // `400 -32700` (parse) vs `413` (too-large).
@@ -418,6 +387,7 @@ function listenWithRetry(
   httpServer: Server,
   port: number,
   host: string,
+  logger?: Partial<McpLogger>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let retried = false;
@@ -425,7 +395,7 @@ function listenWithRetry(
     const onError = (err: NodeJS.ErrnoException): void => {
       if (err.code === "EADDRINUSE" && !retried) {
         retried = true;
-        log.warn(
+        logger?.warn?.(
           `port ${port} busy, retrying in ${EADDRINUSE_RETRY_DELAY_MS}ms…`,
         );
         setTimeout(() => {

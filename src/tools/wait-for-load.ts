@@ -5,7 +5,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { WebContents } from "electron";
 import { z } from "zod";
-import { resolveSurface, type SurfaceGetter } from "../surfaces.js";
+import { resolveSurface, type SurfaceGetter } from "../surfaces";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 

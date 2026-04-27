@@ -1,7 +1,7 @@
 // Small CDP helpers shared by the input/DOM tool modules. ~100 LOC
 // of selector wait + keyboard mapping rather than a Playwright dep.
 
-import type { CdpSession } from "./cdp.js";
+import type { CdpSession } from "./cdp";
 
 // Coordinates in CSS pixels — what `Input.dispatchMouseEvent` expects.
 interface ElementRect {

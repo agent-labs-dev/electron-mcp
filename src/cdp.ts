@@ -3,11 +3,10 @@
 // session cached per surface; `detachAll()` runs at will-quit.
 //
 // DevTools collision: `debugger.attach()` fails if DevTools are
-// already open, so we close them first (set NEBULA_OPEN_DEVTOOLS=0
-// for MCP-driven tests to skip the flicker).
+// already open, so we close them first.
 
 import type { BrowserWindow, WebContents } from "electron";
-import { resolveSurface, type SurfaceGetter } from "./surfaces.js";
+import { resolveSurface, type SurfaceGetter } from "./surfaces";
 
 const CDP_PROTOCOL_VERSION = "1.3";
 
@@ -48,32 +47,15 @@ export function getOrAttachSession(
   const wc = win.webContents;
 
   const existing = attached.get(surface);
-  if (existing && existing.win === win && wc.debugger.isAttached()) {
+  if (existing && !existing.win.isDestroyed() && wc.debugger.isAttached()) {
     return buildSession(existing.surface, wc);
-  }
-  // Surface name was rebound to a new window — the old record's debugger
-  // and detach listener are still pinned to the previous window. Clean
-  // them up before we mint a fresh attachment for the new `win`.
-  if (existing && existing.win !== win) {
-    existing.teardownListener();
-    try {
-      if (
-        !existing.win.isDestroyed() &&
-        existing.win.webContents.debugger.isAttached()
-      ) {
-        existing.win.webContents.debugger.detach();
-      }
-    } catch {
-      // Best-effort cleanup; old window may already be tearing down.
-    }
-    attached.delete(surface);
   }
 
   // Close auto-opened DevTools to avoid the attach conflict.
   if (wc.isDevToolsOpened()) {
     console.warn(
       `[mcp] closing DevTools on "${surface}" surface so the CDP debugger can attach. ` +
-        `Set NEBULA_OPEN_DEVTOOLS=0 when running MCP-driven tests to skip the flicker.`,
+        "Disable auto-opened DevTools in MCP-driven tests to skip the flicker.",
     );
     wc.closeDevTools();
   }
@@ -89,19 +71,11 @@ export function getOrAttachSession(
 
   // Drop the cache on external detach (developer DevTools, another
   // debugger, renderer crash) so the next call re-attaches cleanly.
-  // Self-unregister so reattaching the same surface doesn't pile up
-  // listeners on `wc.debugger`, and only clear the cache if the record
-  // still points at THIS webContents — a rebind to a different window
-  // would otherwise wipe the new attachment.
   const onDetach = (_event: Electron.Event, reason: string) => {
-    wc.debugger.off("detach", onDetach);
     console.warn(
       `[mcp] debugger detached from "${surface}" (reason: ${reason})`,
     );
-    const rec = attached.get(surface);
-    if (rec && rec.win.webContents === wc) {
-      attached.delete(surface);
-    }
+    attached.delete(surface);
   };
   wc.debugger.on("detach", onDetach);
 
@@ -123,15 +97,9 @@ function buildSession(surface: string, wc: WebContents): CdpSession {
       return wc.debugger.sendCommand(method, params ?? {});
     },
     detach: () => {
-      // Stale `CdpSession` handle: a rebind may have already swapped
-      // the cache to a different window. Only tear down the map entry
-      // if it still points at THIS webContents; otherwise we'd clobber
-      // the active binding and leak the old debugger anyway.
       const rec = attached.get(surface);
-      if (rec && rec.win.webContents === wc) {
-        rec.teardownListener();
-        attached.delete(surface);
-      }
+      if (rec) rec.teardownListener();
+      attached.delete(surface);
       if (wc.debugger.isAttached()) {
         try {
           wc.debugger.detach();

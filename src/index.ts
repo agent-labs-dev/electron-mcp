@@ -1,26 +1,21 @@
-// Public entry: synchronous factory returning an explicit-lifecycle
-// handle. Gating (app.isPackaged, env opt-in, port parsing) lives in
-// the consumer (main.ts) — this module makes no assumptions about the
-// host process.
-
 import { Mutex } from "async-mutex";
-import { type RunningMcpServer, startMcpServer } from "./server.js";
-import type { SurfaceGetter, SurfaceMap } from "./surfaces.js";
-import type { ToolDef } from "./tool-def.js";
+import {
+  type McpLogger,
+  type RunningMcpServer,
+  startMcpServer,
+} from "./server";
+import type { SurfaceGetter, SurfaceMap } from "./surfaces";
+import type { ToolDef } from "./tool-def";
 
-export type { SurfaceGetter, SurfaceMap, ToolDef };
-
-interface ElectronMcpServerConfig {
+export interface ElectronMcpServerConfig {
   getSurfaces: SurfaceGetter;
   port?: number;
   host?: string;
-  // Override server identity advertised in MCP `initialize`. Defaults
-  // to `{ name: "@nebula-agents/electron-mcp", version: "0.1.0" }`.
-  serverInfo?: { name: string; version: string };
-  // Override the `initialize.instructions` text shown to the client.
-  // Defaults to a generic "drives floating BrowserWindow surfaces"
-  // string baked into the package.
+  path?: string;
+  serverName?: string;
+  serverVersion?: string;
   instructions?: string;
+  logger?: Partial<McpLogger>;
 }
 
 export interface ElectronMcpServerHandle {
@@ -71,8 +66,11 @@ export function createElectronMcpServer(
           extraTools: tools,
           port: config.port,
           host: config.host,
-          serverInfo: config.serverInfo,
+          path: config.path,
+          serverName: config.serverName,
+          serverVersion: config.serverVersion,
           instructions: config.instructions,
+          logger: config.logger,
         });
       });
     },
@@ -94,3 +92,5 @@ export function createElectronMcpServer(
 
   return handle;
 }
+
+export type { McpLogger, SurfaceGetter, SurfaceMap, ToolDef };

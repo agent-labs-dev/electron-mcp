@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { resolveSurface, type SurfaceGetter } from "../surfaces.js";
-import { awaitNextLoad } from "./wait-for-load.js";
+import { resolveSurface, type SurfaceGetter } from "../surfaces";
+import { awaitNextLoad } from "./wait-for-load";
 
 const inputSchema = {
   surface: z.string().min(1).describe("Which surface to reload."),

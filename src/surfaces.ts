@@ -22,15 +22,7 @@ export function resolveSurface(
   getSurfaces: SurfaceGetter,
   surface: string,
 ): BrowserWindow {
-  // Guard against inherited keys (`__proto__`, `toString`, …) — a
-  // plain `surfaces[surface]` lookup would return `Object.prototype`
-  // for `"__proto__"`, which is not a `BrowserWindow` and would throw
-  // a confusing `isDestroyed is not a function` instead of the
-  // intended `SurfaceNotFoundError`.
-  const surfaces = getSurfaces();
-  const win = Object.prototype.hasOwnProperty.call(surfaces, surface)
-    ? surfaces[surface]
-    : null;
+  const win = getSurfaces()[surface];
   if (!win || win.isDestroyed()) {
     throw new SurfaceNotFoundError(surface);
   }
