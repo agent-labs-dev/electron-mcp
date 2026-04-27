@@ -19,7 +19,10 @@ external model, this package is probably not the right fit.
 
 ```ts
 import { app, BrowserWindow } from "electron";
-import { createElectronMcpServer } from "@nebula-agents/electron-mcp";
+import {
+  createElectronMcpServer,
+  recommendedGuards,
+} from "@nebula-agents/electron-mcp";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -30,7 +33,7 @@ const mcp = createElectronMcpServer({
 app.whenReady().then(async () => {
   mainWindow = new BrowserWindow();
 
-  if (recommendedGuards()) {
+  if (recommendedGuards({ app, envVar: "MY_APP_MCP" })) {
     await mcp.start();
     console.log(`MCP listening at ${mcp.url}`);
   }
@@ -39,10 +42,6 @@ app.whenReady().then(async () => {
 app.on("before-quit", () => {
   void mcp.stop();
 });
-
-function recommendedGuards(): boolean {
-  return !app.isPackaged && process.env.MY_APP_MCP === "1";
-}
 ```
 
 Connect an MCP client to the logged HTTP URL. The default is
@@ -124,10 +123,16 @@ own gate or do not start it.
 Recommended production guard:
 
 ```ts
-function recommendedGuards(): boolean {
-  return !app.isPackaged && process.env.MY_APP_MCP === "1";
+import { recommendedGuards } from "@nebula-agents/electron-mcp";
+
+if (recommendedGuards({ app, envVar: "MY_APP_MCP" })) {
+  await mcp.start();
 }
 ```
+
+The helper returns `true` only when the app is not packaged and the selected
+environment variable is set to `"1"`. It throws if neither `app.isPackaged` nor
+`isPackaged` is provided.
 
 ## Maintenance
 

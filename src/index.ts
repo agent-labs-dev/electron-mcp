@@ -7,6 +7,8 @@ import {
 import type { SurfaceGetter, SurfaceMap } from "./surfaces";
 import type { ToolDef } from "./tool-def";
 
+export { type RecommendedGuardsOptions, recommendedGuards } from "./guards";
+
 export interface ElectronMcpServerConfig {
   getSurfaces: SurfaceGetter;
   port?: number;

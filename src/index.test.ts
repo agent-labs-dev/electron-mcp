@@ -5,7 +5,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createElectronMcpServer } from "./index";
+import { createElectronMcpServer, recommendedGuards } from "./index";
 
 // Ephemeral-port helper — the harness picks a free port via `port: 0`
 // and the handle exposes the resolved URL.
@@ -118,5 +118,66 @@ describe("createElectronMcpServer", () => {
     const stopP = handle.stop();
     await Promise.all([startP, stopP]);
     expect(handle.isRunning).toBe(false);
+  });
+});
+
+describe("recommendedGuards", () => {
+  it("allows startup when the app is unpackaged and the opt-in env var is enabled", () => {
+    expect(
+      recommendedGuards({
+        isPackaged: false,
+        env: { MY_APP_MCP: "1" },
+        envVar: "MY_APP_MCP",
+      }),
+    ).toBe(true);
+  });
+
+  it("blocks startup when the opt-in env var is not enabled", () => {
+    expect(
+      recommendedGuards({
+        isPackaged: false,
+        env: {},
+        envVar: "MY_APP_MCP",
+      }),
+    ).toBe(false);
+  });
+
+  it("blocks startup in packaged builds even when the opt-in env var is enabled", () => {
+    expect(
+      recommendedGuards({
+        isPackaged: true,
+        env: { MY_APP_MCP: "1" },
+        envVar: "MY_APP_MCP",
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts an Electron app-like object for the packaged-state check", () => {
+    expect(
+      recommendedGuards({
+        app: { isPackaged: false },
+        env: { MY_APP_MCP: "1" },
+        envVar: "MY_APP_MCP",
+      }),
+    ).toBe(true);
+  });
+
+  it("blocks startup when an Electron app-like object reports a packaged build", () => {
+    expect(
+      recommendedGuards({
+        app: { isPackaged: true },
+        env: { MY_APP_MCP: "1" },
+        envVar: "MY_APP_MCP",
+      }),
+    ).toBe(false);
+  });
+
+  it("throws when no packaged-state source is provided", () => {
+    expect(() =>
+      recommendedGuards({
+        env: { MY_APP_MCP: "1" },
+        envVar: "MY_APP_MCP",
+      }),
+    ).toThrow(/isPackaged/i);
   });
 });
