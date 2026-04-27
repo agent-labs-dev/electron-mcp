@@ -1,5 +1,5 @@
 import { app, BrowserWindow } from "electron";
-import { createElectronMcpServer } from "../../../dist/index.js";
+import { createElectronMcpServer } from "../../../dist/index.mjs";
 
 let mainWindow = null;
 let mcp = null;
