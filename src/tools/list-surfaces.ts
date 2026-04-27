@@ -3,7 +3,7 @@
 // "missing" instead of silently inferring it.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { SurfaceGetter } from "../surfaces.js";
+import type { SurfaceGetter } from "../surfaces";
 
 export function registerListSurfaces(
   server: McpServer,

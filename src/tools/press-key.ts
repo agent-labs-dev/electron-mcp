@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getOrAttachSession } from "../cdp.js";
-import { type KeyModifier, keyToCdp, modifiersToMask } from "../cdp-helpers.js";
-import type { SurfaceGetter } from "../surfaces.js";
+import { getOrAttachSession } from "../cdp";
+import { type KeyModifier, keyToCdp, modifiersToMask } from "../cdp-helpers";
+import type { SurfaceGetter } from "../surfaces";
 
 const MODIFIER_VALUES = [
   "alt",

@@ -3,8 +3,8 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getOrAttachSession } from "../cdp.js";
-import type { SurfaceGetter } from "../surfaces.js";
+import { getOrAttachSession } from "../cdp";
+import type { SurfaceGetter } from "../surfaces";
 
 const inputSchema = {
   surface: z.string().min(1).describe("Which surface to query."),

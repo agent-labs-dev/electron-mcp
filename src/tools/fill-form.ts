@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { type CdpSession, getOrAttachSession } from "../cdp.js";
-import { waitForSelector } from "../cdp-helpers.js";
-import { resolveSurface, type SurfaceGetter } from "../surfaces.js";
+import { type CdpSession, getOrAttachSession } from "../cdp";
+import { waitForSelector } from "../cdp-helpers";
+import { resolveSurface, type SurfaceGetter } from "../surfaces";
 
 interface RuntimeEvaluateAssertResult {
   result: { value?: { ok: boolean; reason?: string } };

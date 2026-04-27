@@ -1,9 +1,7 @@
 // Public tool-definition shape for `addTool()`. Mirrors the args of
 // `McpServer.registerTool` from `@modelcontextprotocol/sdk` so a
 // consumer can build a tool with the SDK's types and hand it to us
-// without an extra adapter layer. This is the contract that will
-// extract verbatim into the future `@nebula-agents/electron-mcp/types`
-// sub-export.
+// without an extra adapter layer.
 //
 // We can't lift the SDK's generic registerTool signature with
 // `Parameters<...>` (resolves to `never` for generic methods), and

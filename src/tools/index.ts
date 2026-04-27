@@ -1,24 +1,22 @@
-// Generic MCP tool barrel — surface-agnostic, no app-specific
-// callbacks. App-specific tools (`trigger_hotkey`, `trigger_tray_click`)
-// live under `../app-tools/` and are registered by the consumer.
+// Generic MCP tool barrel: surface-agnostic, no app-specific callbacks.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { SurfaceGetter } from "../surfaces.js";
-import { registerAxSnapshot } from "./ax-snapshot.js";
-import { registerClick } from "./click.js";
-import { registerEvaluate } from "./evaluate.js";
-import { registerFillForm } from "./fill-form.js";
-import { registerFocusSurface } from "./focus-surface.js";
-import { registerHideSurface } from "./hide-surface.js";
-import { registerHover } from "./hover.js";
-import { registerListSurfaces } from "./list-surfaces.js";
-import { registerPressKey } from "./press-key.js";
-import { registerQueryDom } from "./query-dom.js";
-import { registerReloadSurface } from "./reload-surface.js";
-import { registerScreenshot } from "./screenshot.js";
-import { registerShowSurface } from "./show-surface.js";
-import { registerTypeText } from "./type-text.js";
-import { registerWaitForLoad } from "./wait-for-load.js";
+import type { SurfaceGetter } from "../surfaces";
+import { registerAxSnapshot } from "./ax-snapshot";
+import { registerClick } from "./click";
+import { registerEvaluate } from "./evaluate";
+import { registerFillForm } from "./fill-form";
+import { registerFocusSurface } from "./focus-surface";
+import { registerHideSurface } from "./hide-surface";
+import { registerHover } from "./hover";
+import { registerListSurfaces } from "./list-surfaces";
+import { registerPressKey } from "./press-key";
+import { registerQueryDom } from "./query-dom";
+import { registerReloadSurface } from "./reload-surface";
+import { registerScreenshot } from "./screenshot";
+import { registerShowSurface } from "./show-surface";
+import { registerTypeText } from "./type-text";
+import { registerWaitForLoad } from "./wait-for-load";
 
 interface RegisterAllToolsOptions {
   getSurfaces: SurfaceGetter;

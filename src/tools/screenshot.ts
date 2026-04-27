@@ -4,7 +4,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { resolveSurface, type SurfaceGetter } from "../surfaces.js";
+import { resolveSurface, type SurfaceGetter } from "../surfaces";
 
 const rectSchema = z.object({
   x: z.number().int().nonnegative(),

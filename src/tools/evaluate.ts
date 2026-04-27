@@ -3,8 +3,8 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getOrAttachSession } from "../cdp.js";
-import type { SurfaceGetter } from "../surfaces.js";
+import { getOrAttachSession } from "../cdp";
+import type { SurfaceGetter } from "../surfaces";
 
 const inputSchema = {
   surface: z
@@ -45,7 +45,6 @@ interface RuntimeEvaluateResult {
     subtype?: string;
     value?: unknown;
     description?: string;
-    unserializableValue?: string;
   };
   exceptionDetails?: {
     exceptionId: number;
@@ -68,7 +67,7 @@ export function registerEvaluate(
         "Run JavaScript in the specified surface's renderer main world via " +
         "CDP Runtime.evaluate. Returns the value (JSON-serialized) or an " +
         "exception description. Main-world scope: DOM, React, Zustand, and " +
-        "window.nebula are reachable; Node/Electron APIs are not.",
+        "the app's preload bridge are reachable; Node/Electron APIs are not.",
       inputSchema,
     },
     async ({
@@ -104,14 +103,10 @@ export function registerEvaluate(
         };
       }
 
-      // CDP reports `NaN`, `Infinity`, `-0`, bigints, etc. via
-      // `unserializableValue` rather than `value` — fall back to it
-      // before the generic `description`/`type` so the agent sees the
-      // actual value instead of a "number" placeholder.
-      const { value, unserializableValue, description, type } = res.result;
+      const value = res.result.value;
       const text =
         value === undefined
-          ? (unserializableValue ?? description ?? String(type))
+          ? (res.result.description ?? String(res.result.type))
           : typeof value === "string"
             ? value
             : JSON.stringify(value, null, 2);

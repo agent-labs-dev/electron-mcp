@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { expect, test } from "@playwright/test";
-import { _electron as electron, type ElectronApplication } from "playwright";
+import { type ElectronApplication, _electron as electron } from "playwright";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,8 +97,9 @@ test("MCP server drives a real Electron surface end-to-end", async () => {
         arguments: { surface: "main", expression: "1 + 1" },
       });
       expect(evaluated.isError).toBeFalsy();
-      const evalText = (evaluated.content as Array<{ type: string; text?: string }>)
-        .find((c) => c.type === "text")?.text;
+      const evalText = (
+        evaluated.content as Array<{ type: string; text?: string }>
+      ).find((c) => c.type === "text")?.text;
       expect(evalText).toBe("2");
 
       // --- screenshot -------------------------------------------------
@@ -107,8 +108,13 @@ test("MCP server drives a real Electron surface end-to-end", async () => {
         arguments: { surface: "main" },
       });
       expect(shot.isError).toBeFalsy();
-      const image = (shot.content as Array<{ type: string; data?: string; mimeType?: string }>)
-        .find((c) => c.type === "image");
+      const image = (
+        shot.content as Array<{
+          type: string;
+          data?: string;
+          mimeType?: string;
+        }>
+      ).find((c) => c.type === "image");
       expect(image?.mimeType).toBe("image/png");
       expect(image?.data).toBeTruthy();
       // Base64 of a non-empty PNG decodes to at least the 8-byte signature
