@@ -22,7 +22,14 @@ export function resolveSurface(
   getSurfaces: SurfaceGetter,
   surface: string,
 ): BrowserWindow {
-  const win = getSurfaces()[surface];
+  // Own-property guard — without it, lookups like `"__proto__"` or
+  // `"constructor"` walk up Object's prototype chain and `isDestroyed()`
+  // throws a raw TypeError on a function value instead of surfacing
+  // the expected SurfaceNotFoundError.
+  const surfaces = getSurfaces();
+  const win = Object.prototype.hasOwnProperty.call(surfaces, surface)
+    ? surfaces[surface]
+    : null;
   if (!win || win.isDestroyed()) {
     throw new SurfaceNotFoundError(surface);
   }

@@ -47,7 +47,12 @@ export function getOrAttachSession(
   const wc = win.webContents;
 
   const existing = attached.get(surface);
-  if (existing && !existing.win.isDestroyed() && wc.debugger.isAttached()) {
+  if (
+    existing &&
+    existing.win.webContents === wc &&
+    !existing.win.isDestroyed() &&
+    wc.debugger.isAttached()
+  ) {
     return buildSession(existing.surface, wc);
   }
 
@@ -71,11 +76,19 @@ export function getOrAttachSession(
 
   // Drop the cache on external detach (developer DevTools, another
   // debugger, renderer crash) so the next call re-attaches cleanly.
+  // Self-unregister first so a stale listener can never fire again,
+  // and only delete the cache entry if it still belongs to this
+  // webContents — a later attach for the same surface key may have
+  // already replaced it.
   const onDetach = (_event: Electron.Event, reason: string) => {
+    wc.debugger.off("detach", onDetach);
     console.warn(
       `[mcp] debugger detached from "${surface}" (reason: ${reason})`,
     );
-    attached.delete(surface);
+    const rec = attached.get(surface);
+    if (rec?.win.webContents === wc) {
+      attached.delete(surface);
+    }
   };
   wc.debugger.on("detach", onDetach);
 
@@ -97,9 +110,14 @@ function buildSession(surface: string, wc: WebContents): CdpSession {
       return wc.debugger.sendCommand(method, params ?? {});
     },
     detach: () => {
+      // Only mutate the cache if it still belongs to this webContents.
+      // A stale CdpSession handle from a prior binding must not delete
+      // the entry now serving a different window.
       const rec = attached.get(surface);
-      if (rec) rec.teardownListener();
-      attached.delete(surface);
+      if (rec?.win.webContents === wc) {
+        rec.teardownListener();
+        attached.delete(surface);
+      }
       if (wc.debugger.isAttached()) {
         try {
           wc.debugger.detach();

@@ -45,7 +45,6 @@ interface RuntimeEvaluateResult {
     subtype?: string;
     value?: unknown;
     description?: string;
-    unserializableValue?: string;
   };
   exceptionDetails?: {
     exceptionId: number;

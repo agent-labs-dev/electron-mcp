@@ -132,6 +132,9 @@ interface FakeWebContents {
   once: (event: string, listener: Listener) => void;
   emit: (event: string, ...args: unknown[]) => void;
   cdpCalls: Array<{ method: string; params?: Record<string, unknown> }>;
+  // Test-only helpers for exercising debugger event flow.
+  emitDebugger: (event: string, ...args: unknown[]) => void;
+  debuggerListenerCount: (event: string) => number;
   asWebContents: WebContents;
 }
 
@@ -165,6 +168,23 @@ export function createFakeWebContents(
     onceListeners.get(event)?.clear();
   };
 
+  // Track debugger listeners so tests can exercise the same
+  // attach/detach/cleanup contract production code follows. Using
+  // bare `vi.fn()` for on/off lets tools that skip getOrAttachSession
+  // (or break listener teardown) silently pass tests.
+  const debuggerListeners = new Map<string, Set<Listener>>();
+  const debuggerOn = (event: string, listener: Listener) => {
+    const bucket = debuggerListeners.get(event) ?? new Set();
+    bucket.add(listener);
+    debuggerListeners.set(event, bucket);
+  };
+  const debuggerOff = (event: string, listener: Listener) => {
+    debuggerListeners.get(event)?.delete(listener);
+  };
+  const emitDebugger = (event: string, ...args: unknown[]) => {
+    for (const l of debuggerListeners.get(event) ?? []) l(...args);
+  };
+
   const fake = {
     id: opts.id ?? 1,
     debugger: {
@@ -176,6 +196,13 @@ export function createFakeWebContents(
         attached = false;
       }),
       sendCommand: async (method: string, params?: Record<string, unknown>) => {
+        // Reject post-detach calls so tests catch tools that mint a
+        // stale session handle and keep using it after teardown.
+        if (!attached) {
+          throw new Error(
+            `[fake-debugger] sendCommand("${method}") while not attached`,
+          );
+        }
         cdpCalls.push({ method, params });
         const response = cdpResponses[method];
         if (typeof response === "function") {
@@ -185,9 +212,14 @@ export function createFakeWebContents(
         }
         return response ?? {};
       },
-      on: vi.fn(),
-      off: vi.fn(),
+      on: vi.fn(debuggerOn),
+      off: vi.fn(debuggerOff),
     },
+    // Test-only escape hatch — fire a debugger event the way Electron
+    // does so tests can exercise CdpSession listener-cleanup paths.
+    emitDebugger,
+    debuggerListenerCount: (event: string) =>
+      debuggerListeners.get(event)?.size ?? 0,
     isLoading: () => opts.isLoading ?? false,
     isDevToolsOpened: () => opts.isDevToolsOpened ?? false,
     closeDevTools: vi.fn(),

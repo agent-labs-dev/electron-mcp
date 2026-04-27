@@ -13,8 +13,14 @@ pnpm check
 ## Development
 
 - Source lives in `src/`.
-- Unit tests are colocated as `*.test.ts`.
-- Electron smoke coverage lives under `test/electron/`.
+- Unit tests are colocated as `*.test.ts` and are the only files vitest
+  picks up (see `vitest.config.ts`).
+- The canonical Electron smoke test is `test/electron/smoke.spec.ts`,
+  driven by `pnpm test:electron`. CI runs this on Linux.
+- `tests/smoke.electron.test.ts` is an alternate exploratory fixture
+  that talks to a CJS Electron main via stdout and is **not** wired
+  into vitest, playwright, or CI; it's kept for local experimentation
+  only and may be removed in a follow-up.
 - Run `pnpm test` for unit tests.
 - Run `pnpm test:electron` for the Electron smoke test.
 
