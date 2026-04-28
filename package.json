@@ -1,6 +1,6 @@
 {
   "name": "@nebula-agents/electron-mcp",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Embedded MCP server for Electron apps.",
   "license": "MIT",
   "author": "Agent Labs",
