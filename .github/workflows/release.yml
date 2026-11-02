@@ -24,7 +24,7 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1
+      - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v1
         with:
           publish: pnpm changeset publish
         env:
