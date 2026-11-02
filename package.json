@@ -61,7 +61,7 @@
     "@types/node": "^24.19.2",
     "electron": "^41.10.7",
     "playwright": "^1.64.1",
-    "tsdown": "^0.21.10",
+    "tsdown": "^0.23.4",
     "typescript": "^6.0.3",
     "vitest": "4.1.12",
     "zod": "^4.6.7"
