@@ -42,6 +42,18 @@ test("drives a real Electron BrowserWindow through MCP", async () => {
       });
       expect(JSON.stringify(evaluated.content)).toContain("Electron MCP Smoke");
 
+      // `capturePage()` rejects with `UnknownVizError` on Electron 45 until
+      // the first frame is composited, so wait for two animation frames
+      // through the MCP surface before asking for a screenshot.
+      await client.callTool({
+        name: "evaluate",
+        arguments: {
+          surface: "main",
+          expression:
+            "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))",
+        },
+      });
+
       const screenshot = await client.callTool({
         name: "screenshot",
         arguments: { surface: "main" },
