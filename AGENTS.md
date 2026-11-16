@@ -10,4 +10,4 @@
 ## Standards
 
 This repository follows the `repo-standards` pack. Keep workflow actions pinned to full commit
-SHAs, preserve least-privilege permissions, and update `CHANGELOG.md` for user-visible releases.
+SHAs, preserve least-privilege permissions, and update `CHANGELOG.md` for user-facing changes.
