@@ -1,5 +1,9 @@
 # @nebula-agents/electron-mcp
 
+## [Unreleased]
+
+- Keep the Changesets release workflow compatible with CLI 3 and Action 2.
+
 ## 0.1.0
 
 ### Minor Changes
