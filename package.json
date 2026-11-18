@@ -35,6 +35,8 @@
     "build": "tsdown",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
     "format": "biome format --write .",
+    "gate": "biome check . && tsc --noEmit && vitest run",
+    "gate:changed": "biome check --changed --since=origin/main --no-errors-on-unmatched && tsc --noEmit && vitest run --changed origin/main --passWithNoTests",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "vitest run",
